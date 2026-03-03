@@ -135,14 +135,18 @@
                 levels[4] = description;
                 levels[5] = description;
                 usageQty = description;
-
             } else if (description === "Service Tax to be collected") {
                 levels[2] = description;
                 levels[3] = "Any";
                 levels[4] = description;
                 levels[5] = description;
                 usageQty = description;
-
+            } else if (description === "$10 per Month for Rule Created in Asia Pacific (Malaysia)") {
+                levels[5] = "$1 per Month for Rule Created in Asia Pacific (Malaysia)";
+            } else if (description === "$50 per Month for Web ACL Created in Asia Pacific (Malaysia)") {
+                levels[5] = "$5 per Month for Web ACL Created in Asia Pacific (Malaysia)";
+            } else if (description === "$100 per Month for AMR Bot Control Subscription in Asia Pacific (Malaysia)") {
+                levels[5] = "$10 per Month for AMR Bot Control Subscription in Asia Pacific (Malaysia)";
             } else {
                 levels[depth - 1] = description;
                 for (let i = depth; i < levels.length; i++) {
