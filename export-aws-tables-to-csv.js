@@ -147,6 +147,8 @@
                 levels[5] = "$5 per Month for Web ACL Created in Asia Pacific (Malaysia)";
             } else if (description === "$100 per Month for AMR Bot Control Subscription in Asia Pacific (Malaysia)") {
                 levels[5] = "$10 per Month for AMR Bot Control Subscription in Asia Pacific (Malaysia)";
+            } else if (description === "$0.43 per Amazon SQS FIFO requests in Tier1 in Asia Pacific (Malaysia)") {
+                levels[5] = "$0.43 per million Amazon SQS FIFO requests in Tier1 in Asia Pacific (Malaysia)";
             } else {
                 levels[depth - 1] = description;
                 for (let i = depth; i < levels.length; i++) {
