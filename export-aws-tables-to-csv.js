@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         AWS Billing Tree Export to CSV (Accurate Depth + Discounts fix - Hash Safe)
-// @namespace    https://chat.openai.com/
-// @version      4.1
-// @description  Same parsing logic, hash-safe selectors
+// @name         AWS Billing Tree Export to CSV
+// @namespace    
+// @version      4.4
+// @description  Same parsing logic, hash-safe selectors + Month column
 // @match        https://*.console.aws.amazon.com/billing/home*
 // @grant        none
 // ==/UserScript==
@@ -29,23 +29,15 @@
     ============================ */
 
     function findHeaderValue(labelText) {
-    
-        // Find all grid columns (hash-safe)
         const gridColumns = document.querySelectorAll('div[class^="awsui_grid-column_"]');
-    
         for (const col of gridColumns) {
-    
-            // Label is inside awsui_root_* div
             const labelDiv = col.querySelector('div[class^="awsui_root_"]');
             const valueH3 = col.querySelector("h3");
-    
             if (!labelDiv || !valueH3) continue;
-    
             if (labelDiv.innerText.trim().includes(labelText)) {
                 return valueH3.innerText.trim();
             }
         }
-    
         return "";
     }
 
@@ -56,23 +48,52 @@
     function getAccountLabelTrimmed() {
         const el = document.querySelector('[data-testid="account-label"]');
         if (!el) return "unknown";
-
         let text = el.textContent.trim();
         text = text.replace(/\s*\(.*?\)/, "");
         text = text.replace(/\s+/g, "_");
         text = text.replace(/[^A-Za-z0-9_-]/g, "");
-
         return text || "unknown";
+    }
+
+    /* ============================
+       Month Formatter
+       Input:  raw billingPeriod string, e.g. "February 1 – February 28, 2026"
+               or after sanitisation "February_1_-_February_28_2026"
+       Output: "Feb 2026"  ← Excel recognises this as a date (MMM YYYY)
+    ============================ */
+
+    function formatBillingPeriodToMonth(billingPeriodRaw) {
+        // Restore spaces so we can parse properly
+        const cleaned = billingPeriodRaw.replace(/_/g, " ").trim();
+
+        // Match the LAST month-name + year that appears in the string
+        // e.g. "February 1 - February 28 2026"  →  month="February", year="2026"
+        const matches = [...cleaned.matchAll(/([A-Za-z]+)\s+\d+[,\s]+(\d{4})/g)];
+
+        if (matches.length === 0) {
+            // Fallback: try just "MonthName YYYY" anywhere
+            const simple = cleaned.match(/([A-Za-z]+)\s+(\d{4})/);
+            if (simple) {
+                const abbr = simple[1].substring(0, 3).toUpperCase();
+                return `${abbr} ${simple[2]}`;
+            }
+            return cleaned; // give up, return as-is
+        }
+
+        // Use the first match (start of billing period = the billed month)
+        const month = matches[0][1];
+        const year  = matches[0][2];
+        const abbr  = month.substring(0, 3).toUpperCase();   // "February" → "FEB"
+
+        return `${abbr} ${year}`;   // e.g. "FEB 2026"
     }
 
     /* ============================
        Parse Table (Same Logic)
     ============================ */
 
-    function parseTable() {
+    function parseTable(monthLabel) {
 
-        // ORIGINAL behavior preserved:
-        // Only rows that contain awsui_row_
         const rows = document.querySelectorAll('tbody tr[class^="awsui_row_"]');
 
         const data = [];
@@ -157,6 +178,7 @@
             }
 
             data.push([
+                monthLabel,       // ← NEW: Month column (first)
                 levels[0],
                 levels[1],
                 levels[2],
@@ -177,6 +199,7 @@
 
     function convertToCSV(data) {
         const header = [
+            "Month",              // ← NEW
             "Account ID",
             "Amazon Company Name",
             "Service Name",
@@ -196,10 +219,9 @@
        Filename
     ============================ */
 
-    function getFileName() {
+    function getFileName(billingPeriodRaw) {
         const accountLabel = getAccountLabelTrimmed();
         const headerAccountID = findHeaderValue("Account ID") || "unknown";
-        const billingPeriodRaw = findHeaderValue("Billing period") || "";
 
         const billingPeriod = billingPeriodRaw
             .replace(/\s+/g, "_")
@@ -244,13 +266,16 @@
     });
 
     btn.addEventListener("click", () => {
-        const data = parseTable();
+        const billingPeriodRaw = findHeaderValue("Billing period") || "";
+        const monthLabel       = formatBillingPeriodToMonth(billingPeriodRaw);
+
+        const data = parseTable(monthLabel);
         if (data.length === 0) {
             alert("⚠️ No rows found. Make sure the billing table is visible.");
             return;
         }
-        const csv = convertToCSV(data);
-        const filename = getFileName();
+        const csv      = convertToCSV(data);
+        const filename = getFileName(billingPeriodRaw);
         downloadFile(csv, filename);
     });
 
